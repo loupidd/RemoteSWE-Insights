@@ -16,6 +16,9 @@ dependencies {
     implementation("org.jsoup:jsoup:1.18.1")
     implementation("org.postgresql:postgresql:42.7.3")
     implementation("org.slf4j:slf4j-simple:2.0.12")
+
+        // Gson
+    implementation("com.google.code.gson:gson:2.10.1")
 }
 
 java {
@@ -26,6 +29,7 @@ java {
 
 application {
     mainClass.set("com.remoteswe.crawler.App")
+    
 }
 
 tasks.named<Test>("test") {
