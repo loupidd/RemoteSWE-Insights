@@ -6,39 +6,36 @@
   let loading = true;
   let error: string | null = null;
 
-  // Helper to format salary
-  function formatSalary(min?: number, max?: number) {
+  function formatSalary(min?: number | null, max?: number | null) {
     if (min && max) return `$${min.toLocaleString()} - $${max.toLocaleString()}`;
     if (min) return `$${min.toLocaleString()}+`;
-    return "N/A";
+    if (max) return `Up to $${max.toLocaleString()}`;
+    return null;
   }
 
   onMount(async () => {
     try {
       const res = await fetch("/api/jobs");
       if (!res.ok) throw new Error(`Failed to fetch jobs: ${res.status}`);
-      const data: Job[] = await res.json();
-
-      // TypeScript-safe mapping: ensures no undefined optional fields
-      jobs = data.map(job => ({
-        ...job,
-        jobType: job.jobType || "Unknown",
-        location: job.location || "Remote",
-        tags: job.tags ?? [], // always an array
-        salaryMin: job.salaryMin ?? undefined,
-        salaryMax: job.salaryMax ?? undefined,
-        experienceLevel: job.experienceLevel || "N/A",
-        employmentTypeDetail: job.employmentTypeDetail || "N/A",
-        jobDescriptionRaw: job.jobDescriptionRaw || "",
-      }));
+      
+      const data = await res.json();
+      
+      console.log("Raw API response:", data);
+      console.log("First job sample:", JSON.stringify(data[0], null, 2));
+      
+      jobs = data;
     } catch (err: any) {
-      console.error(err);
+      console.error("Error fetching jobs:", err);
       error = err.message;
     } finally {
       loading = false;
     }
   });
 </script>
+
+<svelte:head>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+</svelte:head>
 
 <main class="p-6 max-w-7xl mx-auto">
   <h1 class="text-4xl font-bold mb-8 text-center">Remote Job Listings</h1>
@@ -51,41 +48,69 @@
     <p class="text-gray-500 text-center">No jobs found.</p>
   {:else}
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      {#each jobs as job}
+      {#each jobs as job (job.url)}
         <div class="border rounded-xl p-6 shadow-md hover:shadow-xl transition bg-white flex flex-col justify-between">
           <div>
-            <!-- Job Title & Company -->
-            <a href={job.url} target="_blank" class="text-2xl font-bold text-blue-600 hover:underline">{job.jobTitle}</a>
+            <a 
+              href={job.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="text-2xl font-bold text-blue-600 hover:underline block mb-2"
+            >
+              {job.jobTitle}
+            </a>
             <p class="text-gray-700 mt-1 font-medium">{job.companyName}</p>
 
-            <!-- Location & Job Type -->
-            <p class="text-gray-500 text-sm mt-1">{job.location} | {job.jobType}</p>
+            <p class="text-gray-500 text-sm mt-2">
+              <i class="fas fa-map-marker-alt"></i> {job.location || 'Remote'} 
+              {#if job.jobType && job.jobType.trim()}
+                | <i class="fas fa-briefcase"></i> {job.jobType}
+              {/if}
+            </p>
 
-            <!-- Salary -->
             {#if job.salaryMin || job.salaryMax}
-              <p class="text-gray-600 text-sm mt-1">Salary: {formatSalary(job.salaryMin, job.salaryMax)}</p>
+              <p class="text-green-600 text-sm mt-2 font-semibold">
+                <i class="fas fa-dollar-sign"></i> {formatSalary(job.salaryMin, job.salaryMax)}
+              </p>
             {/if}
 
-            <!-- Experience & Employment Detail -->
-            <p class="text-gray-600 text-sm mt-1">Experience: {job.experienceLevel}</p>
-            <p class="text-gray-600 text-sm mt-1">Employment: {job.employmentTypeDetail}</p>
+            {#if job.experienceLevel && job.experienceLevel.trim()}
+              <p class="text-gray-600 text-sm mt-2">
+                <i class="fas fa-chart-line"></i> {job.experienceLevel}
+              </p>
+            {/if}
 
-            <!-- Tags -->
-          {#if (job.tags ?? []).length > 0}
+            {#if job.employmentTypeDetail && job.employmentTypeDetail.trim()}
+              <p class="text-gray-600 text-sm mt-2">
+                <i class="fas fa-clock"></i> {job.employmentTypeDetail}
+              </p>
+            {/if}
+
+            {#if job.tags && job.tags.length > 0}
               <div class="flex flex-wrap gap-2 mt-3">
-              {#each job.tags ?? [] as tag}
-                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">{tag}</span>
-              {/each}
-            </div>
-          {:else}
-            <p class="text-gray-400 text-xs mt-1">No tags</p>
-          {/if}
+                {#each job.tags as tag}
+                  <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                    {tag}
+                  </span>
+                {/each}
+              </div>
+            {:else}
+              <p class="text-gray-400 text-xs mt-3 italic">No tags available</p>
+            {/if}
           </div>
 
-          <!-- Footer with Source & Apply -->
-          <div class="mt-4 flex justify-between items-center text-sm text-gray-400">
-            <span>Source: {job.source}</span>
-            <a href={job.url} target="_blank" class="text-blue-500 hover:underline font-medium">Apply</a>
+          <div class="mt-4 pt-4 border-t flex justify-between items-center text-sm text-gray-400">
+            <span class="truncate mr-2">
+              <i class="fas fa-tag"></i> {job.source}
+            </span>
+            <a 
+              href={job.url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="text-blue-500 hover:underline font-medium whitespace-nowrap"
+            >
+              Apply <i class="fas fa-arrow-right"></i>
+            </a>
           </div>
         </div>
       {/each}
@@ -97,5 +122,6 @@
   main {
     font-family: system-ui, sans-serif;
     background-color: #f9fafb;
+    min-height: 100vh;
   }
 </style>
