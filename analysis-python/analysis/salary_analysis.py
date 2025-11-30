@@ -1,15 +1,23 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-# PostgreSQL connection configuration
+# Paths
+BASE_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CHART_PATH = os.path.join(BASE_PATH, "charts")
+EXPORT_PATH = os.path.join(BASE_PATH, "exports")
+os.makedirs(CHART_PATH, exist_ok=True)
+os.makedirs(EXPORT_PATH, exist_ok=True)
+
+# DB config
 DB_CONFIG = {
     "host": "localhost",
     "port": 5432,
-    "dbname": "remote_jobs",
-    "user": "your_user",
-    "password": "your_password"
+    "dbname": "remoteswe_db",
+    "user": "remoteswe_user",
+    "password": "08080701"
 }
 
 def fetch_jobs():
@@ -24,17 +32,22 @@ def fetch_jobs():
     return df
 
 def analyze_salary(df):
-    # Fill missing salary_max with salary_min
     df['salary_max'] = df['salary_max'].fillna(df['salary_min'])
     df['avg_salary'] = (df['salary_min'] + df['salary_max']) / 2
 
+    # Save CSV summary
+    df_summary = df.groupby('experience_level')['avg_salary'].mean().reset_index()
+    df_summary.to_csv(os.path.join(EXPORT_PATH, "salary_summary.csv"), index=False)
+
+    # Plot
     plt.figure(figsize=(10,6))
-    df.groupby('experience_level')['avg_salary'].mean().sort_values().plot(kind='bar', color='skyblue')
+    df_summary.sort_values('avg_salary', inplace=True)
+    plt.bar(df_summary['experience_level'], df_summary['avg_salary'], color='skyblue')
     plt.title("Average Salary by Experience Level")
     plt.ylabel("Average Salary (USD)")
     plt.xlabel("Experience Level")
     plt.tight_layout()
-    plt.savefig("../charts/avg_salary_by_experience.png")
+    plt.savefig(os.path.join(CHART_PATH, "avg_salary_by_experience.png"))
     plt.show()
 
 if __name__ == "__main__":
